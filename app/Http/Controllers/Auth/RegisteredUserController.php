@@ -152,7 +152,7 @@ class RegisteredUserController extends Controller
         }
     }
 
-    public function destroy(Request $request, string $id): JsonResponse
+    public function destroy(string $id): JsonResponse
     {
         try {
             $authUser = Auth::user();
