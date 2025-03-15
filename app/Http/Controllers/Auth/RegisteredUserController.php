@@ -57,6 +57,7 @@ class RegisteredUserController extends Controller
                 'message' => 'Utilisateur créé avec succès.',
                 'user'    => $user,
                 'token'   => $token,
+                'status'=> 201
             ]);
         } catch (\Throwable $th) {
             return response()->json(['error' => $th->getMessage()], 500);
@@ -86,6 +87,7 @@ class RegisteredUserController extends Controller
             'message' => 'Connexion réussie.',
             'user'    => $user,
             'token'   => $token,
+            'status'=> 201
         ]);
     }
 
@@ -146,6 +148,7 @@ class RegisteredUserController extends Controller
             return response()->json([
                 'message' => 'Utilisateur mis à jour avec succès.',
                 'user'    => $userToUpdate,
+                'status'=> 201
             ]);
         } catch (\Throwable $th) {
             return response()->json(['error' => $th->getMessage()], 500);
@@ -170,11 +173,58 @@ class RegisteredUserController extends Controller
             $userToDelete->delete();
 
             return response()->json([
-                'message' => 'Utilisateur supprimé avec succès.'
+                'message' => 'Utilisateur supprimé avec succès.',
+                'status'=> 201
             ]);
         } catch (\Throwable $th) {
             return response()->json(['error' => $th->getMessage()], 500);
         }
     }
 
+    public function logout(Request $request, string $id): JsonResponse
+    {
+        try {
+            $authUser = Auth::user();
+            if (!$authUser) {
+                return response()->json(['error' => 'Utilisateur non authentifié.'], 401);
+            }
+
+            // Vérifier que l'utilisateur authentifié est soit administrateur, soit qu'il se déconnecte lui-même
+            if ($authUser->role_id != 1 && $authUser->id != $id) {
+                return response()->json(['error' => 'Vous n\'êtes pas autorisé à déconnecter cet utilisateur.'], 403);
+            }
+
+            // Récupérer l'utilisateur ciblé pour la déconnexion
+            $userToLogout = User::findOrFail($id);
+
+            if ($authUser->id == $userToLogout->id) {
+                // Si l'utilisateur se déconnecte lui-même, supprimer uniquement le token courant
+                $authUser->currentAccessToken()->delete();
+            } else {
+                // Si un administrateur déconnecte un autre utilisateur, supprimer tous ses tokens
+                $userToLogout->tokens()->delete();
+            }
+
+            return response()->json([
+                'message' => 'Déconnexion réussie.',
+                'status'=> 201
+            ]);
+        } catch (\Throwable $th) {
+            return response()->json(['error' => $th->getMessage()], 500);
+        }
+    }
+    public function allUser() : JsonResponse
+    {
+        try {
+            $users = User::all();
+            return response()->json([
+            'message' => 'Liste des utilisateurs',
+                'user'    => $users,
+                'status'=> 201
+            ]);
+        }
+        catch (\Throwable $th) {
+            return response()->json(['error' => $th->getMessage()], 500);
+        }
+    }
 }

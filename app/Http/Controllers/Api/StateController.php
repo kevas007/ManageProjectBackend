@@ -1,13 +1,13 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Api;
 
-use App\Models\ProjectState;
 use App\Http\Controllers\Controller;
-use App\Http\Requests\StoreProjectStateRequest;
-use App\Http\Requests\UpdateProjectStateRequest;
+use App\Http\Requests\StoreStateRequest;
+use App\Http\Requests\UpdateStateRequest;
+use App\Models\State;
 
-class ProjectStateController extends Controller
+class StateController extends Controller
 {
     /**
      * Display a listing of the resource.
@@ -28,7 +28,7 @@ class ProjectStateController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-    public function store(StoreProjectStateRequest $request)
+    public function store(StoreStateRequest $request)
     {
         //
     }
@@ -36,7 +36,7 @@ class ProjectStateController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show(ProjectState $projectState)
+    public function show(State $state)
     {
         //
     }
@@ -44,7 +44,7 @@ class ProjectStateController extends Controller
     /**
      * Show the form for editing the specified resource.
      */
-    public function edit(ProjectState $projectState)
+    public function edit(State $state)
     {
         //
     }
@@ -52,7 +52,7 @@ class ProjectStateController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(UpdateProjectStateRequest $request, ProjectState $projectState)
+    public function update(UpdateStateRequest $request, State $state)
     {
         //
     }
@@ -60,7 +60,7 @@ class ProjectStateController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(ProjectState $projectState)
+    public function destroy(State $state)
     {
         //
     }
