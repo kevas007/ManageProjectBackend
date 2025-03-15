@@ -18,213 +18,229 @@ class RegisteredUserController extends Controller
 {
     /**
      * Handle an incoming registration request.
-     *
-     * @throws \Illuminate\Validation\ValidationException
      */
     public function register(Request $request): JsonResponse
     {
         try {
-            // Validation avec message personnalisé pour l'unicité de l'email
+            // Validate data with custom messages
             $data = $request->validate([
                 'name'     => ['required', 'string', 'max:255'],
                 'email'    => ['required', 'string', 'email', 'max:255', 'unique:'.User::class],
                 'password' => ['required', Rules\Password::defaults()],
             ], [
-                'email.unique' => 'L\'adresse email est déjà utilisée.',
+                'email.unique' => 'The email address is already in use.',
             ]);
 
-            // Forcer l'email en minuscules
+            // Normalize email to lowercase
             $data['email'] = strtolower($data['email']);
 
-            // Récupérer le premier rôle
+            // Retrieve the default role (adjust based on your business logic)
             $role = Role::first();
             if (!$role) {
-                return response()->json(['error' => 'Aucun rôle défini.'], 500);
+                return response()->json(['error' => 'No role defined.'], 500);
             }
 
-            // Création de l'utilisateur
+            // Create the user
             $user = User::create([
                 'name'     => $data['name'],
                 'email'    => $data['email'],
                 'role_id'  => $role->id,
                 'password' => Hash::make($data['password']),
             ]);
-            $token = $user->createToken('auth_token')->plainTextToken;
+
+            // Fire the Registered event (useful for sending a confirmation email, etc.)
             event(new Registered($user));
 
+            // Create the authentication token
+            $token = $user->createToken('auth_token')->plainTextToken;
 
             return response()->json([
-                'message' => 'Utilisateur créé avec succès.',
+                'message' => 'User created successfully.',
                 'user'    => $user,
                 'token'   => $token,
-                'status'=> 201
-            ]);
+            ], 201);
         } catch (\Throwable $th) {
             return response()->json(['error' => $th->getMessage()], 500);
         }
     }
+
+    /**
+     * Authenticate an existing user.
+     */
     public function login(Request $request): JsonResponse
     {
-        // Validation des identifiants
-        $credentials = $request->validate([
-            'email'    => ['required', 'string', 'email', 'max:255'],
-            'password' => ['required', 'string'],
-        ]);
+        try {
+            // Validate credentials
+            $credentials = $request->validate([
+                'email'    => ['required', 'string', 'email', 'max:255'],
+                'password' => ['required', 'string'],
+            ]);
 
-        // Recherche de l'utilisateur par email (en normalisant l'email)
-        $user = User::where('email', strtolower($credentials['email']))->first();
+            // Normalize email to lowercase
+            $credentials['email'] = strtolower($credentials['email']);
 
-        // Vérification de l'existence de l'utilisateur et du mot de passe
-        if (!$user || !Hash::check($credentials['password'], $user->password)) {
-            return response()->json(['error' => 'Identifiants invalides.'], 401);
+            // Retrieve the user by email
+            $user = User::where('email', $credentials['email'])->first();
+            if (!$user || !Hash::check($credentials['password'], $user->password)) {
+                return response()->json(['error' => 'Invalid credentials.'], 401);
+            }
+
+            // Create the authentication token
+            $token = $user->createToken('auth_token')->plainTextToken;
+
+            return response()->json([
+                'message' => 'Login successful.',
+                'user'    => $user,
+                'token'   => $token,
+            ], 200);
+        } catch (\Throwable $th) {
+            return response()->json(['error' => $th->getMessage()], 500);
         }
-
-        // Création du token d'authentification
-        $token = $user->createToken('auth_token')->plainTextToken;
-
-
-        return response()->json([
-            'message' => 'Connexion réussie.',
-            'user'    => $user,
-            'token'   => $token,
-            'status'=> 201
-        ]);
     }
 
-
+    /**
+     * Update user information.
+     */
     public function update(Request $request, string $id): JsonResponse
     {
         try {
             $authUser = Auth::user();
             if (!$authUser) {
-                return response()->json(['error' => 'Utilisateur non authentifié.'], 401);
+                return response()->json(['error' => 'Unauthenticated user.'], 401);
             }
 
-            // Si l'utilisateur n'est pas administrateur, il ne peut modifier que son propre profil.
+            // Only an admin or the user themself can update the profile
             if ($authUser->role_id != 1 && $authUser->id != $id) {
-                return response()->json(['error' => 'Vous n\'êtes pas autorisé à modifier cet utilisateur.'], 403);
+                return response()->json(['error' => 'You are not authorized to update this user.'], 403);
             }
 
-            // Détermine quel utilisateur sera mis à jour
+            // Define the user to update
+            $userToUpdate = $authUser->role_id == 1 ? User::findOrFail($id) : $authUser;
+
+            // Define validation rules based on the role
+            $rules = [
+                'name'     => ['required', 'string', 'max:255'],
+                'email'    => ['required', 'string', 'email', 'max:255', Rule::unique('users')->ignore($userToUpdate->id)],
+                'password' => ['nullable', Rules\Password::defaults()],
+            ];
             if ($authUser->role_id == 1) {
-                // L'administrateur peut mettre à jour n'importe quel utilisateur
-                $userToUpdate = User::findOrFail($id);
-                $rules = [
-                    'name'     => ['required', 'string', 'max:255'],
-                    'email'    => ['required', 'string', 'email', 'max:255', Rule::unique('users')->ignore($userToUpdate->id)],
-                    'password' => ['nullable', Rules\Password::defaults()],
-                    'role_id'  => ['required']
-                ];
-            } else {
-                // L'utilisateur standard ne peut mettre à jour que son propre profil
-                $userToUpdate = $authUser;
-                $rules = [
-                    'name'     => ['required', 'string', 'max:255'],
-                    'email'    => ['required', 'string', 'email', 'max:255', Rule::unique('users')->ignore($userToUpdate->id)],
-                    'password' => ['nullable', Rules\Password::defaults()]
-                ];
+                $rules['role_id'] = ['required'];
             }
 
             $data = $request->validate($rules, [
-                'email.unique' => "L'email est déjà utilisé par un autre utilisateur.",
+                'email.unique' => 'The email is already used by another user.',
             ]);
 
-            // Normalisation de l'email
+            // Normalize email to lowercase
             $data['email'] = strtolower($data['email']);
 
-            // Mise à jour des informations
+            // Update user information
             $userToUpdate->name  = $data['name'];
             $userToUpdate->email = $data['email'];
-            // Seul l'admin peut mettre à jour le rôle
             if ($authUser->role_id == 1 && isset($data['role_id'])) {
                 $userToUpdate->role_id = $data['role_id'];
             }
             if (!empty($data['password'])) {
                 $userToUpdate->password = Hash::make($data['password']);
             }
-
             $userToUpdate->save();
 
             return response()->json([
-                'message' => 'Utilisateur mis à jour avec succès.',
+                'message' => 'User updated successfully.',
                 'user'    => $userToUpdate,
-                'status'=> 201
-            ]);
+            ], 200);
         } catch (\Throwable $th) {
             return response()->json(['error' => $th->getMessage()], 500);
         }
     }
 
+    /**
+     * Soft delete a user.
+     */
     public function destroy(string $id): JsonResponse
     {
         try {
             $authUser = Auth::user();
             if (!$authUser) {
-                return response()->json(['error' => 'Utilisateur non authentifié.'], 401);
+                return response()->json(['error' => 'Unauthenticated user.'], 401);
             }
 
-            // Seul un administrateur peut supprimer n'importe quel utilisateur,
-            // tandis qu'un utilisateur standard ne peut supprimer que son propre compte.
+            // Only an admin or the user themself can delete the account
             if ($authUser->role_id != 1 && $authUser->id != $id) {
-                return response()->json(['error' => 'Vous n\'êtes pas autorisé à supprimer cet utilisateur.'], 403);
+                return response()->json(['error' => 'You are not authorized to delete this user.'], 403);
             }
 
             $userToDelete = User::findOrFail($id);
-            $userToDelete->delete();
+            $userToDelete->delete(); // Soft delete (ensure the User model uses SoftDeletes)
 
             return response()->json([
-                'message' => 'Utilisateur supprimé avec succès.',
-                'status'=> 201
-            ]);
+                'message' => 'User deleted successfully.',
+            ], 200);
         } catch (\Throwable $th) {
             return response()->json(['error' => $th->getMessage()], 500);
         }
     }
 
+    /**
+     * Log out a user by revoking their token.
+     */
     public function logout(Request $request, string $id): JsonResponse
     {
         try {
             $authUser = Auth::user();
             if (!$authUser) {
-                return response()->json(['error' => 'Utilisateur non authentifié.'], 401);
+                return response()->json(['error' => 'Unauthenticated user.'], 401);
             }
 
-            // Vérifier que l'utilisateur authentifié est soit administrateur, soit qu'il se déconnecte lui-même
+            // Only an admin or the user themself can log out the account
             if ($authUser->role_id != 1 && $authUser->id != $id) {
-                return response()->json(['error' => 'Vous n\'êtes pas autorisé à déconnecter cet utilisateur.'], 403);
+                return response()->json(['error' => 'You are not authorized to log out this user.'], 403);
             }
 
-            // Récupérer l'utilisateur ciblé pour la déconnexion
             $userToLogout = User::findOrFail($id);
-
             if ($authUser->id == $userToLogout->id) {
-                // Si l'utilisateur se déconnecte lui-même, supprimer uniquement le token courant
+                // If the user is logging out themself, revoke only the current token
                 $authUser->currentAccessToken()->delete();
             } else {
-                // Si un administrateur déconnecte un autre utilisateur, supprimer tous ses tokens
+                // An admin can revoke all tokens for the target user
                 $userToLogout->tokens()->delete();
             }
 
             return response()->json([
-                'message' => 'Déconnexion réussie.',
-                'status'=> 201
-            ]);
+                'message' => 'Logout successful.',
+            ], 200);
         } catch (\Throwable $th) {
             return response()->json(['error' => $th->getMessage()], 500);
         }
     }
-    public function allUser() : JsonResponse
+
+    /**
+     * Retrieve the list of users (admin access only).
+     */
+    public function allUser(): JsonResponse
     {
         try {
-            $users = User::all();
+            $authUser = Auth::user();
+            if (!$authUser) {
+                return response()->json(['error' => 'Unauthenticated user.'], 401);
+            }
+
+            // Verify that the user has an admin role (here role_id 1 or 2, adjust according to your rules)
+            if (!in_array($authUser->role_id, [1, 2])) {
+                return response()->json(['error' => 'Access denied.'], 403);
+            }
+
+            $users = User::with((['roles:id,name']))
+                ->select('id', 'name', 'email', 'deleted_at','role_id')
+                ->get();
+
             return response()->json([
-            'message' => 'Liste des utilisateurs',
-                'user'    => $users,
-                'status'=> 201
-            ]);
-        }
-        catch (\Throwable $th) {
+                'message' => 'List of users',
+                'users'   => $users,
+            ], 200);
+        } catch (\Throwable $th) {
             return response()->json(['error' => $th->getMessage()], 500);
         }
     }
+
 }

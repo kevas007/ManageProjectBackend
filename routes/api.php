@@ -16,6 +16,7 @@ Route::prefix('/v1/')->group(function () {
         Route::put('/users/{user}', [\App\Http\Controllers\Auth\RegisteredUserController::class, 'update']);
         Route::delete('/delete/{user}', [\App\Http\Controllers\Auth\RegisteredUserController::class, 'destroy']);
         Route::post('/logout/{user}', [\App\Http\Controllers\Auth\RegisteredUserController::class, 'logout']);
+        Route::get("/users", [\App\Http\Controllers\Auth\RegisteredUserController::class, 'allUser']);
 
     });
 
