@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Models\State;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -16,8 +17,12 @@ class ProjectFactory extends Factory
      */
     public function definition(): array
     {
+        $states = State::all();
         return [
-            //
+            'name' => fake()->name(),
+            'description' => fake()->text(),
+            'state_id' => $states->random()->id,
+            'deadline' => fake()->dateTime()
         ];
     }
 }

@@ -189,7 +189,7 @@ class RegisteredUserController extends Controller
         try {
             $authUser = Auth::user();
             if (!$authUser) {
-                return response()->json(['error' => 'Unauthenticated user.'], 401);
+                return response()->json(['error' => 'Unauthenticated usersss.'], 401);
             }
 
             // Only an admin or the user themself can log out the account

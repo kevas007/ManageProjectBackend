@@ -9,4 +9,8 @@ class ProjectState extends Model
 {
     /** @use HasFactory<\Database\Factories\ProjectStateFactory> */
     use HasFactory;
+    protected $fillable = [
+        'user_id',
+        'project_id'
+    ];
 }

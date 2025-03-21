@@ -24,6 +24,12 @@ Route::prefix('/v1/')->group(function () {
         Route::put("/state/{store}/update", [\App\Http\Controllers\Api\StateController::class, 'update']);
         Route::delete("/state/{store}/delete", [\App\Http\Controllers\Api\StateController::class, 'destroy']);
 
+        Route::get("/projects", [\App\Http\Controllers\Api\ProjectController::class, 'index']);
+        Route::post("/project", [\App\Http\Controllers\Api\ProjectController::class, 'store']);
+        Route::get("/project/{project}", [\App\Http\Controllers\Api\ProjectController::class, 'show']);
+        Route::put("/project/{project}/update", [\App\Http\Controllers\Api\ProjectController::class, 'update']);
+        Route::delete("/project/{project}/delete", [\App\Http\Controllers\Api\ProjectController::class, 'destroy']);
+        Route::post("/project/{project}", [\App\Http\Controllers\Api\ProjectController::class, 'attachUser']);
     });
 
 });
