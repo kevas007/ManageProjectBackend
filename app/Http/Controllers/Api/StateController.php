@@ -22,7 +22,7 @@ class StateController extends Controller
             return response()->json(
                 [
                     'message' => 'All states',
-                    'states'   => $states,
+                    'data'   => $states,
                 ], 200
             );
         }

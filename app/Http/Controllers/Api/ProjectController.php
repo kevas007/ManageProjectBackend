@@ -45,7 +45,8 @@ class ProjectController extends Controller
             $validated =  $request->validate([
                 'name' => 'required|string|max:255',
                 'description' => 'nullable|string',
-                'deadline' => 'nullable|date'
+                'deadline' => 'nullable|date',
+                'state_id' => 'required|exists:states,id',
             ]);
 
             $project=Project::create($validated);
@@ -68,9 +69,10 @@ class ProjectController extends Controller
     public function show(Project $project)
     {
         try {
+            $show= $project->load(['state','users']);
             return response()->json([
                 'success' => true,
-                'data' => $project,
+                'data' => $show,
             ]);
         } catch (\Exception $e) {
             return response()->json([
@@ -111,21 +113,16 @@ class ProjectController extends Controller
     {
         try {
             $validated = $request->validate([
-                'user_id' => 'required|integer|exists:users,id',
+                'user_id' => 'nullable|array',
+                'user_id.*' => 'integer|exists:users,id',
             ]);
 
-            if ($project->users()->where('user_id', $validated['user_id'])->exists()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Utilisateur déjà attaché à ce projet',
-                ], 409);
-            }
-
-            $project->users()->attach($validated['user_id']);
+            // sync remplace tous les users liés au projet : c'est ce qu'on veut !
+            $project->users()->sync($validated['user_id']);
 
             return response()->json([
                 'success' => true,
-                'message' => 'Utilisateur ajouté avec succès',
+                'message' => 'Liste des utilisateurs synchronisée avec succès.',
             ]);
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);
@@ -133,11 +130,22 @@ class ProjectController extends Controller
     }
 
 
+
     /**
      * Remove the specified resource from storage.
      */
     public function destroy(Project $project)
     {
-        //
+        try {
+            $project->delete();
+            return response()->json([
+                'success' => true,
+            ]);
+        }
+        catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+
     }
+
 }

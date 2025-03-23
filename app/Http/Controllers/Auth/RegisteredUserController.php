@@ -220,23 +220,22 @@ class RegisteredUserController extends Controller
     public function allUser(): JsonResponse
     {
         try {
-            $authUser = Auth::user();
-            if (!$authUser) {
-                return response()->json(['error' => 'Unauthenticated user.'], 401);
-            }
+            //$authUser = Auth::user();
+           // if (!$authUser) {
+            //      return response()->json(['error' => 'Unauthenticated user.'], 401);
+            //   }
 
             // Verify that the user has an admin role (here role_id 1 or 2, adjust according to your rules)
-            if (!in_array($authUser->role_id, [1, 2])) {
-                return response()->json(['error' => 'Access denied.'], 403);
-            }
+           // if (!in_array($authUser->role_id, [1, 2])) {
+            //       return response()->json(['error' => 'Access denied.'], 403);
+            //     }
 
             $users = User::with((['roles:id,name']))
-                ->select('id', 'name', 'email', 'deleted_at','role_id')
                 ->get();
 
             return response()->json([
                 'message' => 'List of users',
-                'users'   => $users,
+                'data'   => $users,
             ], 200);
         } catch (\Throwable $th) {
             return response()->json(['error' => $th->getMessage()], 500);
