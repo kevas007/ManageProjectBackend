@@ -47,16 +47,39 @@ class ProjectController extends Controller
                 'description' => 'nullable|string',
                 'deadline' => 'nullable|date',
                 'state_id' => 'required|exists:states,id',
+                'users' => 'nullable|array', // 👈 facultatif mais accepté
+                'users.*' => 'integer|exists:users,id', // 👈 chaque user doit exister
             ]);
 
-            $project=Project::create($validated);
+           // $project=Project::create($validated);
+            // Création du projet
+            $project = Project::create([
+                'name' => $validated['name'],
+                'description' => $validated['description'] ?? null,
+                'deadline' => $validated['deadline'] ?? null,
+                'state_id' => $validated['state_id'],
+            ]);
+
+            // Liaison des utilisateurs si fournis
+            if (isset($validated['users'])) {
+                $project->users()->sync($validated['users']);
+            }
+
+            // Retourne projet + relations (optionnel)
+            $project->load('users');
 
             return response()->json([
                 'success' => true,
                 'message' => 'Création réussie',
-                'data' => $project
+                'data' => $project,
             ], 201);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => $e->getMessage(),
+            ], 500);
         }
+
         catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);
         }
